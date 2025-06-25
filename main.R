@@ -180,7 +180,7 @@ if (!dir.exists(output_dir)) {
 }
 
 # Write the final results data frame to a CSV file
-write_csv(final_results, final_results_file)
+# write_csv(final_results, final_results_file)
 
 # # --- 5. GENERATE AND SAVE PROTEIN-LEVEL SUMMARY ---
 # message("Generating protein-level summary...")
