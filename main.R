@@ -16,6 +16,8 @@ error_log_file <- file.path(log_dir, "warning_curve_fit_errors.txt")
 
 # Output file name
 final_results_file <- file.path(output_dir, "final_turnover_rates.csv")
+protein_summary_file <- file.path(output_dir, "protein_turnover_summary.csv")
+protein_summary_traditional_filter_file <- file.path(output_dir, "protein_summary_traditional_filter.csv")
 
 # Analysis Parameters
 rsquared_threshold <- 0.80
@@ -179,5 +181,53 @@ if (!dir.exists(output_dir)) {
 
 # Write the final results data frame to a CSV file
 write_csv(final_results, final_results_file)
+
+# --- 5. GENERATE AND SAVE PROTEIN-LEVEL SUMMARY ---
+message("Generating protein-level summary...")
+
+# Define the R-squared threshold for including peptides in the protein summary
+protein_summary_r2_threshold <- 0.8
+
+protein_summary <- final_results %>%
+  group_by(Protein) %>%
+  summarise(
+    # Old method: filter by old R-squared and summarize old k
+    peptides_used_old = sum(Rsquared_old_methold > protein_summary_r2_threshold, na.rm = TRUE),
+    median_k_old = median(k_old_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE),
+    sd_k_old = sd(k_old_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE),
+
+    # New method: filter by new R-squared and summarize new k
+    peptides_used_new = sum(Rsquared_new_methold > protein_summary_r2_threshold, na.rm = TRUE),
+    median_k_new = median(k_new_methold[Rsquared_new_methold > protein_summary_r2_threshold], na.rm = TRUE),
+    sd_k_new = sd(k_new_methold[Rsquared_new_methold > protein_summary_r2_threshold], na.rm = TRUE)
+  ) %>%
+  # Replace NaN with NA for cases where sd() is calculated on a single peptide
+  mutate(across(where(is.numeric), ~if_else(is.nan(.), NA_real_, .))) %>%
+  # Remove proteins that have no quantifiable peptides passing the threshold in either method
+  filter(peptides_used_old > 0 | peptides_used_new > 0)
+
+# Save the protein-level summary to a new CSV file
+write_csv(protein_summary, protein_summary_file)
+message(sprintf("Protein-level summary saved to '%s'.", protein_summary_file))
+
+# --- 6. GENERATE PROTEIN SUMMARY USING ONLY TRADITIONAL R-SQUARED FILTER ---
+message("Generating protein-level summary using only the traditional R-squared filter...")
+
+protein_summary_traditional <- final_results %>%
+  group_by(Protein) %>%
+  summarise(
+    # Use only peptides that pass the old R-squared threshold for all calculations
+    peptides_used = sum(Rsquared_old_methold > protein_summary_r2_threshold, na.rm = TRUE),
+    mean_k_old = mean(k_old_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE),
+    sd_k_old = sd(k_old_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE),
+    mean_k_new = mean(k_new_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE),
+    sd_k_new = sd(k_new_methold[Rsquared_old_methold > protein_summary_r2_threshold], na.rm = TRUE)
+  ) %>%
+  mutate(across(where(is.numeric), ~if_else(is.nan(.), NA_real_, .))) %>%
+  filter(peptides_used > 0)
+
+# Save the new summary to a separate CSV file
+write_csv(protein_summary_traditional, protein_summary_traditional_filter_file)
+message(sprintf("Protein summary with traditional filter saved to '%s'.", protein_summary_traditional_filter_file))
 
 message("Script finished.")
