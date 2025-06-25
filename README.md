@@ -1,6 +1,18 @@
-# Turnover Rates and Numbers of Exchangeable Hydrogens in Deuterated Water Labeled Samples 
+# Analysis of the dependence of protein turnover rates on the number of exchangeable hydrogens in deuterated water-labeled samples.
 
-This R script automates the computational approach to eliminate the dependence of the turnover rates on the number of exchangeable hydrogens. It reads quantitative peptide data and corresponding rate constant information, merges them, calculates deuterium uptake over time (Pxt), and then performs non-linear curve fitting to determine the kinetic exchange rates (k) for individual peptides. 
+This project provides an R-based workflow for calculating protein turnover rates from mass spectrometry data, eliminating the dependence of the turnover rates on the Number of Exchangeable Hydrogens (NEH).
+
+## Overview
+
+The analysis pipeline performs the following key steps:
+
+1.  **Data Ingestion**: Reads and merges `.Quant.csv` and `.RateConst.csv` files from a specified data directory.
+2.  **px(t) Calculation**: Calculates the fraction of newly synthesized protein, px(t), for each peptide at multiple time points.
+3.  **NEH-based px(t) Adjustment**: Performs a linear regression of px(t) against NEH for each time point and calculates an adjusted px(t) value to correct for systematic biases.
+4.  **Turnover Rate Fitting**: Fits the adjusted px(t) data to a non-linear exponential decay model to estimate the protein turnover rate constant (`k`).
+5.  **Output Generation**: Saves the final calculated turnover rates to a clean, analysis-ready CSV file.
+
+The core of this method is the `adjust_pxt_all` function, which corrects for the observed dependency of px(t) on NEH, aiming to provide a more accurate estimation of turnover rates.
 
 ## Features
 
@@ -10,65 +22,85 @@ This R script automates the computational approach to eliminate the dependence o
 *   Non-linear curve fitting using a exponential decay model to determine peptide exchange rates.
 *   Robust error handling and logging for failed curve fits.
 *   Generation of a comprehensive output dataframe with calculated turnover rates.
+  
+## Project Structure
+
+```
+Turnover_Rate_NEH_dependence/
+├── SampleData/
+│   ├── sample1.Quant.csv
+│   ├── sample1.RateConst.csv
+│   └── ... (other data files)
+├── results/
+│   └── final_turnover_rates.csv  (Output file)
+├── log/
+│   ├── warning_ria_error.txt
+│   └── warning_curve_fit_errors.txt
+├── main.R                # Main script to run the entire analysis
+├── Helper.R              # Contains all helper functions for the analysis
+└── README.md             # This file
+```
 
 ## Prerequisites
 
-*   **R**: A recent version of R (e.g., 4.x.x) is recommended.
-*   **R Packages**: The following packages are required. You can install them using:
-    ```R
-    install.packages(c("dplyr", "minpack.lm", "nlme", "MASS", "ggplot2", "readr"))
-    ```
-    *   `dplyr` for data manipulation.
-    *   `minpack.lm` for non-linear least squares fitting.
-    *   `nlme` for linear and non-linear mixed effects models (though not explicitly used in the provided snippet, it's loaded).
-    *   `MASS` for various statistical functions (loaded but not explicitly used in the snippet).
-    *   `ggplot2` for data visualization (loaded but not explicitly used for plotting in the snippet).
-    *   `readr` (implied by `read_csv_robust2` in `Helper.R`) for efficient CSV reading.
+Before running the analysis, you need to have R installed on your system, along with the following R packages:
+
+-   `dplyr`
+-   `ggplot2`
+-   `purrr`
+-   `tidyr`
+-   `readr`
+
+You can install all the required packages by running the following command in your R console:
+
+```r
+install.packages(c("dplyr", "ggplot2", "purrr", "tidyr", "readr"))
+```
 
 ## Setup and Usage
 
-1.  **Place Files**: Ensure the main script (`main.R`) and the `Helper.R` file are in the same directory.
+1.  **Clone the Repository**:
+    ```bash
+    git clone <repository-url>
+    cd Turnover_Rate_NEH_dependence
+    ```
 
 2.  **Prepare Your Data**:
-    *   Organize your `.Quant.csv` and `.RateConst.csv` files within a designated input folder.
-    *   For every `.Quant.csv` file, there must be a corresponding `.RateConst.csv` file with the same base name (e.g., `Protein1.Quant.csv` and `Protein1.RateConst.csv`).
+    -   Place your raw data files (`.Quant.csv` and `.RateConst.csv`) inside the `SampleData` directory.
+    -   The script expects paired files, for example, `my_sample.Quant.csv` and `my_sample.RateConst.csv`.
 
-3.  **Configure the Script**:
-    *   Open the main R script in an R editor (e.g., RStudio).
-    *   **Crucially, set the `folder_path` variable** to the directory containing your input data files:
-        ```R
-        folder_path <- "path/to/your/data/folder" # <-- IMPORTANT: Set this path!
-        ```
-    *   Adjust other parameters as needed for your specific experiment:
-        *   `rsquared_threshold`: Minimum R-squared value for initial data filtering (default: 0.80).
-        *   `exp_time`: A numeric vector defining your experimental time points (e.g., `c(0, 1, 2, 3, 4, 5, 6, 14, 21)`).
-        *   `ph=1.5574E-4`, `pw`: Parameters related to water and hydrogen concentrations/properties (defaults provided are for a specific dataset, adjust if necessary).
-    *   (Optional) Modify the paths for `warning_ria_log_file` and `error_log_file` if you want logs saved elsewhere.
+3.  **Configure the Analysis (Optional)**:
+    -   Open the `main.R` script.
+    -   In the `--- CONFIGURATION ---` section at the top, you can adjust parameters such as:
+        -   `folder_path`: The directory containing your input data.
+        -   `output_dir`: The directory where results will be saved.
+        -   `rsquared_threshold`: The minimum R-squared value from the initial rate constant calculation to include a peptide in the analysis.
+        -   `exp_time`: A vector of the experimental time points.
 
-4.  **Run the Script**:
-    Execute the script from your R environment:
-    ```R
-    source("main.R") 
+4.  **Run the Analysis**:
+    -   Open R or RStudio.
+    -   Set your working directory to the root of the project folder.
+    -   Source the main script to execute the entire workflow:
+    ```r
+    source("main.R")
     ```
-    The script will process all `.Quant.csv` and corresponding `.RateConst.csv` files found in the `folder_path`.
+    -   The script will print progress messages to the console and notify you upon completion.
 
-5.  **Review Output**:
-    The primary output will be stored in the `results_adj_df` dataframe within your R session. You can then save this dataframe to a CSV file or further analyze it:
-    ```R
-    write.csv(results_adj_df, "results_adj_df.csv", row.names = FALSE)
-    ```
+## Output
 
-## Input Data Format
+The primary output is the `final_turnover_rates.csv` file located in the `results` directory. This file contains the calculated turnover rates for each peptide and includes the following columns:
 
-The script expects two types of CSV files for each protein:
+-   `Protein`: The name of the source protein/sample file.
+-   `Peptide`: The peptide sequence.
+-   `Charge`: The charge state of the peptide.
+-   `NEH`: The Number of Exchangeable Hydrogens.
+-   `k_old_methold`: The turnover rate constant from the original `.RateConst.csv` file.
+-   `Rsquared_old_methold`: The R-squared value from the original fit.
+-   `k_new_methold`: The newly calculated turnover rate constant after NEH adjustment.
+-   `Rsquared_new_methold`: The R-squared value for the new turnover rate fit.
 
-*   **`.Quant.csv`**: Contains quantitative peptide data.
-    *   The script uses `read_csv_robust2(..., skip = 3)`, implying the first 3 rows are headers/metadata to be skipped.
-    *   It should contain columns like `"Peptide"`, `"Charge"`, and time-point specific deuterium uptake values (e.g., `X0`, `X1`, `X2`, etc., corresponding to your `exp_time` points).
+Log files containing any warnings or errors encountered during the run are saved in the `log` directory.
 
-*   **`.RateConst.csv`**: Contains rate constant information.
-    *   The script uses `read_csv_robust2(..., skip = 0)`.
-    *   It should contain columns like `"Peptides"` (which is renamed to `"Peptide"`), `"Charge"`, `"RateConstants"`, `"Rsquared"`, `"RootMeanRSS"`, `"NDP"`, `"M0"`, `"NEH"`.
 
 ### `Helper.R`
 
@@ -77,23 +109,5 @@ This external file is crucial and is expected to contain the following R functio
 *   `read_csv_robust2(file_path, skip)`: A robust CSV reading function.
 *   `get_pxt(time_index, index, neh, merged_data)`: Function to extract Pxt values from the merged data.
 *   `adjust_pxt_all(pxt_data)`: Function to perform adjustments on the Pxt values.
-*   `ElementalComposition(peptide_sequence)`: Function to calculate the number of exchangeable hydrogens (NH) from a peptide sequence.
 *   `d2ome_curve_fit_adj_pxt(cof, times, B_values, maxrate)`: Function to perform the non-linear curve fitting for turnover rate determination.
 
-## Output Data (`results_adj_df`)
-
-The `results_adj_df` dataframe contains the calculated turnover parameters for each processed peptide. Key columns include:
-
-*   `SourceFile`: Original input file name.
-*   `peptide_name`: Name of the peptide.
-*   `k`: The calculated turnover exchange rate constant (turnover rate) from the curve fit.
-*   `RSS`: Residual Sum of Squares from the curve fit.
-*   `neh`: Number of exchangeable hydrogens for the peptide.
-*   `rate`: The original rate constant from the input `.RateConst.csv` file.
-*   `Rsquared_k`: R-squared value for the turnover curve fit.
-*   `peptide_charge`: Charge state of the peptide.
-*   `RootMeanRSS`, `NDP`, `RSS_csv`, `Rsquared_csv`: Metrics from the initial `.RateConst.csv` file.
-
-## Error Handling and Logging
-
-The script includes `tryCatch` blocks to gracefully handle errors during file processing and curve fitting. Errors are logged to the specified `error_log_file` (default: `/log/warning_curve_fit_errors.txt`), helping in debugging and identifying problematic data points.
