@@ -268,7 +268,7 @@ read_csv_robust2 <- function(file_path, skip = 0) {
         new_header[i] <- col_name
       }
     }
-    
+     
     # Read data with processed headers
     data <- read.csv(
       text = paste(data_lines[-1], collapse = "\n"),
@@ -277,6 +277,14 @@ read_csv_robust2 <- function(file_path, skip = 0) {
       check.names = FALSE
     )
     colnames(data) <- new_header
+    
+    # Find and remove columns that have empty names, which can result from
+    # trailing commas in the header row of the CSV file.
+    empty_col_indices <- which(colnames(data) == "")
+    if (length(empty_col_indices) > 0) {
+      # This prevents `tibble` from issuing a "New names" message later on.
+      data <- data[, -empty_col_indices, drop = FALSE]
+    }
     
     # Convert numeric columns
     data[] <- lapply(data, function(x) {
